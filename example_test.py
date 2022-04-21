@@ -131,8 +131,32 @@ class ExampleTest(BitcoinTestFramework):
         Define it in a method here because you're going to use it repeatedly.
         If you think it's useful in general, consider moving it to the base
         BitcoinTestFramework class so other tests can use it."""
+        # Connect node 1
+        peer_messaging = self.nodes[1].add_p2p_connection(BaseNode())
+        self.log.info("Connect node2 and node1")
+        self.connect_nodes(1, 2)
 
-        self.log.info("Running custom_method")
+        self.tip = int(self.nodes[1].getbestblockhash(), 16)
+        self.block_time = self.nodes[1].getblock(self.nodes[1].getbestblockhash())['time'] + 1
+
+        height = self.nodes[1].getblockcount()
+
+        # Make a block
+        block = create_block(self.tip, create_coinbase(height + 1), self.block_time)
+        block.solve()
+        block_message = msg_block(block)
+        # Send message is used to send a P2P message to the node over our P2PInterface
+        peer_messaging.send_message(block_message)
+        self.tip = block.sha256
+        self.block_time += 1
+        height += 1
+
+        # Sync the nodes
+        self.sync_all()
+        self.nodes[2].waitforblockheight(height)
+        # Assert that the newest block known by node 2 is equal to the newly mined block
+        assert_equal(self.nodes[2].getbestblockhash(), block.hash)
+
 
     def run_test(self):
         """Main test logic"""
